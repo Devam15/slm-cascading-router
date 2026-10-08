@@ -1,56 +1,64 @@
-# SLM Cascading Router — Self-Consistency Escalation
+# 🔀 SLM Cascading Router
 
-A small local language model answers every question. When it isn't sure of itself, the question is escalated to a bigger model.
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-local-000000?logo=ollama&logoColor=white)
+![Model](https://img.shields.io/badge/Small%20model-Qwen2.5--1.5B-7B61FF)
+![Escalation](https://img.shields.io/badge/Big%20model-GPT--4.1--mini-10A37F?logo=openai&logoColor=white)
+![Dataset](https://img.shields.io/badge/Dataset-MedHallu-E4405F)
 
-## How it works
+> A small local model answers first, and only asks for help when it disagrees with itself.
 
-1. **Ask the small model 3 times.** Qwen2.5-1.5B (via Ollama) answers the same question three times with sampling on (temperature 0.8).
-2. **Check if it agrees with itself.** The three answers are embedded with `all-MiniLM-L6-v2` and their average pairwise cosine similarity becomes the *consistency score*. Agreeing answers suggest confidence; disagreeing answers suggest uncertainty.
-3. **Escalate if it disagrees.** If consistency < 0.75, the question goes to the big model (GPT-4.1-mini by default, or a local `qwen2.5:7b`), which answers once.
-4. **Score everything.** Final answers are compared to the dataset's ground truth with embedding similarity (≥ 0.55 counts as correct), with and without routing.
+## ⚙️ How it works
 
-## Dataset
+```mermaid
+flowchart LR
+    Q[❓ Question] --> S[🤖 Small model<br/>answers 3×]
+    S --> C{🔁 Answers<br/>agree?}
+    C -- yes --> A[✅ Keep small<br/>model's answer]
+    C -- no --> B[🧠 Escalate to<br/>big model]
+    B --> F[✅ Final answer]
+    A --> F
+```
 
-[MedHallu](https://huggingface.co/datasets/UTAustin-AIHealth/MedHallu) (`pqa_labeled`, 1,000 expert-labelled medical Q&A rows). A 350-row subset, stratified by difficulty and hallucination category, is in `data/`. It contains the original 120-row pilot as a literal subset.
+- **Self-consistency:** sample the small model 3× (temperature 0.8) and measure how similar the answers are.
+- **Escalate** when agreement drops below **0.75**.
+- **Score** answers against ground truth with `all-MiniLM-L6-v2` (similarity ≥ 0.55 = correct).
 
-### Dataset & licence
-
-The files in `data/` are subsets of MedHallu, redistributed under its MIT licence. MedHallu's questions are derived from PubMedQA, also MIT-licensed. If you use this data, please cite the original work:
-
-- **MedHallu:** Pandit et al., *MedHallu: A Comprehensive Benchmark for Detecting Medical Hallucinations in Large Language Models*, 2025. [arXiv:2502.14302](https://arxiv.org/abs/2502.14302) · [GitHub](https://github.com/MedHallu/MedHallu) · [Hugging Face](https://huggingface.co/datasets/UTAustin-AIHealth/MedHallu)
-- **PubMedQA:** Jin et al., *PubMedQA: A Dataset for Biomedical Research Question Answering*, EMNLP 2019. [GitHub](https://github.com/pubmedqa/pubmedqa)
-
-## Results (350 questions)
+## 📊 Results (350 medical questions)
 
 | | |
 |---|---|
-| Questions escalated | 24 / 350 (6.9%) |
-| Small model alone — accuracy | 74.0% |
-| Small model + routing — accuracy | 76.6% |
-| Wrong answers caught by escalation | 14 / 91 (15.4%) |
-| Caught answers fixed by the big model | 9 of 14 |
-| Correct answers broken by escalating | 0 |
-| Avg consistency — correct vs. wrong answers | 0.921 vs. 0.868 |
+| 🎯 Accuracy, small model alone | **74.0%** |
+| 🚀 Accuracy, with routing | **76.6%** |
+| 📤 Questions escalated | **6.9%** (24 / 350) |
+| 🪤 Wrong answers caught | **15.4%** (14 / 91) |
+| 🛠️ Caught answers fixed by big model | **9 / 14** |
+| 🛡️ Correct answers broken | **0** |
 
-**Takeaway:** self-consistency is a real but weak signal on medical questions. Escalating ~7% of questions catches ~15% of the errors, and routing never made a correct answer worse. Its blind spot: a model that is *consistently* wrong looks confident.
+💡 **Takeaway:** escalating ~7% of questions catches ~15% of errors and never makes an answer worse. The blind spot: a model that's *consistently* wrong looks confident.
 
-## Files
-
-| File | What it does |
-|---|---|
-| `router_demo.py` | The router: sample, score consistency, escalate, evaluate |
-| `dataset_prep.py` | Downloads MedHallu and builds the 120-row stratified pilot |
-| `dataset_prep_extend.py` | Extends the pilot to 350 rows, keeping the original 120 |
-| `data/` | The 120- and 350-row subsets |
-| `results/router_results.csv` | Per-question results of the 350-row run |
-
-## Run it
+## 🚀 Run it
 
 ```bash
 ollama pull qwen2.5:1.5b
 pip install -r requirements.txt
-export OPENAI_API_KEY="sk-..."   # only for the default openai backend; never commit keys
+export OPENAI_API_KEY="sk-..."   # or set BIG_MODEL_BACKEND = "ollama" to stay fully local
 python router_demo.py
 ```
 
-Set `BIG_MODEL_BACKEND = "ollama"` in `router_demo.py` to keep everything local.
+## 📁 Files
+
+| | |
+|---|---|
+| `router_demo.py` | The router: sample → score → escalate → evaluate |
+| `dataset_prep.py` | Builds the 120-question stratified pilot from MedHallu |
+| `dataset_prep_extend.py` | Extends it to 350, keeping the original 120 |
+| `data/` | The 120- and 350-question subsets |
+| `results/router_results.csv` | Per-question results |
+
+## 📚 Dataset & licence
+
+`data/` contains subsets of **MedHallu** (MIT licence), whose questions come from **PubMedQA** (MIT). Please cite the originals:
+
+- Pandit et al., *MedHallu: A Comprehensive Benchmark for Detecting Medical Hallucinations in Large Language Models*, 2025 · [arXiv](https://arxiv.org/abs/2502.14302) · [GitHub](https://github.com/MedHallu/MedHallu) · [Hugging Face](https://huggingface.co/datasets/UTAustin-AIHealth/MedHallu)
+- Jin et al., *PubMedQA: A Dataset for Biomedical Research Question Answering*, EMNLP 2019 · [GitHub](https://github.com/pubmedqa/pubmedqa)
