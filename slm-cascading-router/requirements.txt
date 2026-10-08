@@ -1,0 +1,5 @@
+ollama
+sentence-transformers
+pandas
+datasets      # only for dataset_prep*.py
+openai        # only if BIG_MODEL_BACKEND = "openai"
